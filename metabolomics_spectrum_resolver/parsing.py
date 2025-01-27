@@ -554,7 +554,7 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     # Clean up the new MassBank accessions if necessary.
     massbank_accession = re.match(
         # See https://github.com/MassBank/MassBank-web/blob/main/Documentation/MassBankRecordFormat.md#211-accession
-        r"MSBNK-[A-Za-z0–9_]{1,32}-([A-Z0–9_]{1,64})", index
+        r"MSBNK-[A-Za-z0-9_]{1,32}-([A-Z0-9_]{1,64})", index
     )
     if massbank_accession is not None:
         index = massbank_accession.group(1)
