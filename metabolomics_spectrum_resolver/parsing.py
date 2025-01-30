@@ -415,15 +415,9 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
             "Currently supported MassBank index flags: accession", 400
         )
     index = match.group(4)
-    # Clean up the new MassBank accessions if necessary.
-    massbank_accession = re.match(
-        # See https://github.com/MassBank/MassBank-web/blob/main/Documentation/MassBankRecordFormat.md#211-accession
-        r"MSBNK-[A-Za-z0–9_]{1,32}-([A-Z0–9_]{1,64})", index
-    )
-    if massbank_accession is not None:
-        index = massbank_accession.group(1)
-    try:
 
+    try:
+        # Try requesting from massbankeurope first
         lookup_request = requests.get(
             f"{MASSBANKEUROPE_SERVER}{index}", timeout=timeout
         )
@@ -431,15 +425,22 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
         lookup_request.raise_for_status()
         spectrum_dict = lookup_request.json()
 
+        # if request is str we know it was unsuccessfull and try MONA
+        if type(spectrum_dict) == str:
+            
+            massbank_accession = re.match(
+                # See https://github.com/MassBank/MassBank-web/blob/main/Documentation/MassBankRecordFormat.md#211-accession
+                r"MSBNK-[A-Za-z0–9_]{1,32}-([A-Z0–9_]{1,64})", index
+            )
+            if massbank_accession is not None:
+                index = massbank_accession.group(1)
 
-        # check if repsonse is "sql: no rows in result set"
-        if lookup_request.text == "sql: no rows in result set":
+
             lookup_request = requests.get(
                 f"{MASSBANK_SERVER}{index}", timeout=timeout
             )
             lookup_request.raise_for_status()
             spectrum_dict = lookup_request.json()
-
             mz, intensity = [], []
             for peak in spectrum_dict["spectrum"].split():
                 peak_mz, peak_intensity = peak.split(":")
@@ -455,14 +456,14 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
             )
 
         else:
-    
-            peaks = spectrum_dict["acquisition"]["mass_spectrometry"]["peak"]["peak"]["values"]
+            # If request is successful we know it was massbankeurope and parse accordingly
+            peaks = spectrum_dict["peak"]["peak"]["values"]
 
             mz = [peak["mz"] for peak in peaks]
             intensity = [peak["intensity"] for peak in peaks]
 
             precursor_mz = next(
-                (float(item["value"]) for item in spectrum_dict["acquisition"]["mass_spectrometry"]["focused_ion"] if item["subtag"] == "PRECURSOR_M/Z"),
+                (float(item["value"]) for item in spectrum_dict['mass_spectrometry']['focused_ion'] if item["subtag"] == "PRECURSOR_M/Z"),
                 0
                 )
             
@@ -473,9 +474,6 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
 
         spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
         return spectrum, source_link
-    
-
-
     except requests.exceptions.HTTPError:
         raise UsiError("Unknown MassBank USI", 404)
 
