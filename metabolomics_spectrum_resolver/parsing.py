@@ -15,6 +15,7 @@ timeout = 45  # seconds
 MS2LDA_SERVER = "http://ms2lda.org/basicviz/"
 MOTIFDB_SERVER = "http://ms2lda.org/motifdb/"
 MASSBANK_SERVER = "https://massbank.us/rest/spectra/"
+MASSBANKEUROPE_SERVER = "https://msbi.ipb-halle.de/MassBank3-api/v1/records/"
 
 # USI specification: http://www.psidev.info/usi
 usi_pattern = re.compile(
@@ -422,27 +423,59 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     if massbank_accession is not None:
         index = massbank_accession.group(1)
     try:
+
         lookup_request = requests.get(
-            f"{MASSBANK_SERVER}{index}", timeout=timeout
+            f"{MASSBANKEUROPE_SERVER}{index}", timeout=timeout
         )
+
         lookup_request.raise_for_status()
         spectrum_dict = lookup_request.json()
-        mz, intensity = [], []
-        for peak in spectrum_dict["spectrum"].split():
-            peak_mz, peak_intensity = peak.split(":")
-            mz.append(float(peak_mz))
-            intensity.append(float(peak_intensity))
-        precursor_mz = 0
-        for metadata in spectrum_dict["metaData"]:
-            if metadata["name"] == "precursor m/z":
-                precursor_mz = float(metadata["value"])
-                break
-        source_link = (
-            f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
-        )
+
+
+        # check if repsonse is "sql: no rows in result set"
+        if lookup_request.text == "sql: no rows in result set":
+            lookup_request = requests.get(
+                f"{MASSBANK_SERVER}{index}", timeout=timeout
+            )
+            lookup_request.raise_for_status()
+            spectrum_dict = lookup_request.json()
+
+            mz, intensity = [], []
+            for peak in spectrum_dict["spectrum"].split():
+                peak_mz, peak_intensity = peak.split(":")
+                mz.append(float(peak_mz))
+                intensity.append(float(peak_intensity))
+            precursor_mz = 0
+            for metadata in spectrum_dict["metaData"]:
+                if metadata["name"] == "precursor m/z":
+                    precursor_mz = float(metadata["value"])
+                    break
+            source_link = (
+                f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
+            )
+
+        else:
+    
+            peaks = spectrum_dict["acquisition"]["mass_spectrometry"]["peak"]["peak"]["values"]
+
+            mz = [peak["mz"] for peak in peaks]
+            intensity = [peak["intensity"] for peak in peaks]
+
+            precursor_mz = next(
+                (float(item["value"]) for item in spectrum_dict["acquisition"]["mass_spectrometry"]["focused_ion"] if item["subtag"] == "PRECURSOR_M/Z"),
+                0
+                )
+            
+            source_link = (
+                f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
+            )
+
 
         spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
         return spectrum, source_link
+    
+
+
     except requests.exceptions.HTTPError:
         raise UsiError("Unknown MassBank USI", 404)
 
