@@ -478,6 +478,90 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
         raise UsiError("Unknown MassBank USI", 404)
 
 
+# Parse MONA entry.
+def _parse_mona(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
+    match = _match_usi(usi)
+    index_flag = match.group(3)
+    if index_flag.lower() != "accession":
+        raise UsiError(
+            "Currently supported MassBank index flags: accession", 400
+        )
+    
+    index = match.group(4)
+    
+    try:
+        lookup_request = requests.get(
+            f"{MASSBANK_SERVER}{index}", timeout=timeout
+        )
+        lookup_request.raise_for_status()
+        spectrum_dict = lookup_request.json()
+
+        mz, intensity = [], []
+        for peak in spectrum_dict["spectrum"].split():
+            peak_mz, peak_intensity = peak.split(":")
+            mz.append(float(peak_mz))
+            intensity.append(float(peak_intensity))
+        precursor_mz = 0
+        for metadata in spectrum_dict["metaData"]:
+            if metadata["name"] == "precursor m/z":
+                precursor_mz = float(metadata["value"])
+                break
+        source_link = (
+            f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
+        )
+
+        spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
+
+        return spectrum, source_link
+    
+    except requests.exceptions.HTTPError:
+        raise UsiError("Unknown MassBank USI", 404)
+
+# Parse MassBank entry.
+def _parse_massbankEurope(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
+    match = _match_usi(usi)
+    index_flag = match.group(3)
+    if index_flag.lower() != "accession":
+        raise UsiError(
+            "Currently supported MassBank index flags: accession", 400
+        )
+    
+    index = match.group(4)
+
+    try:
+        # Try requesting from massbankeurope first
+        lookup_request = requests.get(
+            f"{MASSBANKEUROPE_SERVER}{index}", timeout=timeout
+        )
+
+        lookup_request.raise_for_status()
+        spectrum_dict = lookup_request.json()
+
+        # If request is successful we know it was massbankeurope and parse accordingly
+        peaks = spectrum_dict["peak"]["peak"]["values"]
+
+        mz = [peak["mz"] for peak in peaks]
+        intensity = [peak["intensity"] for peak in peaks]
+
+        precursor_mz = next(
+            (float(item["value"]) for item in spectrum_dict['mass_spectrometry']['focused_ion'] if item["subtag"] == "PRECURSOR_M/Z"),
+            0
+            )
+                
+        source_link = (
+            f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
+        )
+
+        spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
+        return spectrum, source_link
+    
+
+    #show what error
+    except requests.exceptions.HTTPError as e:
+        print(e)
+        raise 'error'
+
+
 # Parse MS2LDA from ms2lda.org.
 def _parse_ms2lda(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     match = _match_usi(usi)
