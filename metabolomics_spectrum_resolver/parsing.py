@@ -564,11 +564,6 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     -------
     Tuple[sus.MsmsSpectrum, str]
         The parsed spectrum and the source link.
-
-    TODO:
-    ------
-    - Determine MoNA/MassBank
-    - Make call to appropriate endpoint
     """
     match = _match_usi(usi)
     index_flag = match.group(3)
