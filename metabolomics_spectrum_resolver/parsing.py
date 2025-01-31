@@ -16,7 +16,7 @@ timeout = 45  # seconds
 
 MS2LDA_SERVER = "http://ms2lda.org/basicviz/"
 MOTIFDB_SERVER = "http://ms2lda.org/motifdb/"
-MASSBANK_SERVER = "https://massbank.us/rest/spectra/"
+MONA_SERVER = "https://massbank.us/rest/spectra/"
 MASSBANKEUROPE_SERVER = "https://msbi.ipb-halle.de/MassBank3-api/v1/records/"
 
 # USI specification: http://www.psidev.info/usi
@@ -545,6 +545,23 @@ def _parse_gnps_library(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
 
 # Parse MassBank entry.
 def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
+    """ Parse a MassBank or MoNA USI and return the corresponding spectrum/source url.
+
+    Parameters
+    ----------
+    usi : str
+        The USI to be parsed.
+
+    Returns
+    -------
+    Tuple[sus.MsmsSpectrum, str]
+        The parsed spectrum and the source link.
+
+    TODO:
+    ------
+    - Determine MoNA/MassBank
+    - Make call to appropriate endpoint
+    """
     match = _match_usi(usi)
     index_flag = match.group(3)
     if index_flag.lower() != "accession":
@@ -561,7 +578,7 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
         index = massbank_accession.group(1)
     try:
         lookup_request = requests.get(
-            f"{MASSBANK_SERVER}{index}", timeout=timeout
+            f"{MONA_SERVER}{index}", timeout=timeout
         )
         lookup_request.raise_for_status()
         spectrum_dict = lookup_request.json()
@@ -587,6 +604,29 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
 
 # Parse MONA entry.
 def _parse_mona(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
+    """ Parse a MONA USI and return the corresponding spectrum. Performs a web request to
+    MONA_SERVER.
+
+    Parameters
+    ----------
+    usi : str
+        The USI to be parsed.
+
+    Globals
+    -------
+    MONA_SERVER : str
+        The base URL for the MONA server.
+
+    Returns
+    -------
+    Tuple[sus.MsmsSpectrum, str]
+        The parsed spectrum and the source link.
+
+    Raises
+    ------
+    UsiError
+        If the USI could not be parsed because it is incorrectly formatted.
+    """
     match = _match_usi(usi)
     index_flag = match.group(3)
     if index_flag.lower() != "accession":
@@ -598,7 +638,7 @@ def _parse_mona(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     
     try:
         lookup_request = requests.get(
-            f"{MASSBANK_SERVER}{index}", timeout=timeout
+            f"{MONA_SERVER}{index}", timeout=timeout
         )
         lookup_request.raise_for_status()
         spectrum_dict = lookup_request.json()
@@ -626,6 +666,29 @@ def _parse_mona(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
 
 # Parse MassBank entry.
 def _parse_massbankEurope(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
+    """ Parse a MassBank[EU|JP] USI and return the corresponding spectrum. Performs a web request to 
+    MassBank Server.
+
+    Parameters
+    ----------
+    usi : str
+        The USI to be parsed.
+
+    Globals
+    -------
+    MassBank Server : str
+        The base URL for the MONA server.
+
+    Returns
+    -------
+    Tuple[sus.MsmsSpectrum, str]
+        The parsed spectrum and the source link.
+
+    Raises
+    ------
+    UsiError
+        If the USI could not be parsed because it is incorrectly formatted.
+    """
     match = _match_usi(usi)
     index_flag = match.group(3)
     if index_flag.lower() != "accession":
