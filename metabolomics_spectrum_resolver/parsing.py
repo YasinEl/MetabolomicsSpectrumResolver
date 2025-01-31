@@ -707,7 +707,7 @@ def _parse_massbankEurope(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
             )
                 
         source_link = (
-            f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
+            f"https://massbank.eu/MassBank/" f"RecordDisplay?id={index}"
         )
 
         spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
