@@ -547,6 +547,11 @@ def _parse_gnps_library(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
 def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     """ Parse a MassBank or MoNA USI and return the corresponding spectrum/source url.
 
+    MassBank USIs are of the form: MSBNK-[A-Za-z0-9_]{1,32}-[A-Z0-9_]{1,64}
+    
+    Fall back to MoNA if MassBank EU fails to respond. Note that partial MassBank ids 
+    (e.g., SM858102) will only resolve to MoNA. 
+
     Parameters
     ----------
     usi : str
@@ -572,34 +577,20 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     # Clean up the new MassBank accessions if necessary.
     massbank_accession = re.match(
         # See https://github.com/MassBank/MassBank-web/blob/main/Documentation/MassBankRecordFormat.md#211-accession
-        r"MSBNK-[A-Za-z0-9_]{1,32}-([A-Z0-9_]{1,64})", index
+        r"(MSBNK-[A-Za-z0-9_]{1,32}-[A-Z0-9_]{1,64})", index
     )
     if massbank_accession is not None:
-        index = massbank_accession.group(1)
-    try:
-        lookup_request = requests.get(
-            f"{MONA_SERVER}{index}", timeout=timeout
-        )
-        lookup_request.raise_for_status()
-        spectrum_dict = lookup_request.json()
-        mz, intensity = [], []
-        for peak in spectrum_dict["spectrum"].split():
-            peak_mz, peak_intensity = peak.split(":")
-            mz.append(float(peak_mz))
-            intensity.append(float(peak_intensity))
-        precursor_mz = 0
-        for metadata in spectrum_dict["metaData"]:
-            if metadata["name"] == "precursor m/z":
-                precursor_mz = float(metadata["value"])
-                break
-        source_link = (
-            f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
-        )
+        # It's certiainly MassBank EU/JP
+        try:
+            index = massbank_accession.group(1)  # The whole thing
+            return _parse_massbankEurope(usi)
+            
+        except UsiError:
+            pass
 
-        spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
-        return spectrum, source_link
-    except requests.exceptions.HTTPError:
-        raise UsiError("Unknown MassBank USI", 404)
+    # Either MassBank EU Failed or it's a MoNA entry, fallback to MoNA.
+    # Let the exception propagate if it fails
+    return _parse_mona(usi)
 
 
 # Parse MONA entry.
