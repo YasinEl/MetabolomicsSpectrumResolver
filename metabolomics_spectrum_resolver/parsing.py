@@ -580,7 +580,6 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     if massbank_accession is not None:
         # It's certiainly MassBank EU/JP
         try:
-            index = massbank_accession.group(1)  # The whole thing
             return _parse_massbankEurope(usi)
             
         except UsiError:
@@ -643,7 +642,7 @@ def _parse_mona(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
                 precursor_mz = float(metadata["value"])
                 break
         source_link = (
-            f"https://massbank.eu/MassBank/" f"RecordDisplay.jsp?id={index}"
+            f"https://massbank.us/spectra/display/{index}"
         )
 
         spectrum = sus.MsmsSpectrum(usi, precursor_mz, 0, mz, intensity)
