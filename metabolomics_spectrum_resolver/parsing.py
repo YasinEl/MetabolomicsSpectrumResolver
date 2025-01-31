@@ -93,6 +93,9 @@ def parse_usi(usi: str) -> Tuple[sus.MsmsSpectrum, str, str]:
     Tuple[sus.MsmsSpectrum, str, str]
         A tuple of the `MsmsSpectrum`, its source link, and its SPLASH.
     """
+    # Very basic cleanup
+    usi = str(usi).strip()
+
     match = _match_usi(usi)
     try:
         collection = match.group(1).lower()
@@ -548,7 +551,7 @@ def _parse_massbank(usi: str) -> Tuple[sus.MsmsSpectrum, str]:
     """ Parse a MassBank or MoNA USI and return the corresponding spectrum/source url.
 
     MassBank USIs are of the form: MSBNK-[A-Za-z0-9_]{1,32}-[A-Z0-9_]{1,64}
-    
+
     Fall back to MoNA if MassBank EU fails to respond. Note that partial MassBank ids 
     (e.g., SM858102) will only resolve to MoNA. 
 
